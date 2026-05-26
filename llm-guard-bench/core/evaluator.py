@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Optional
 
-from core.adapter import BaseAdapter
+from core.adapters import BaseAdapter
 
 
 class EvaluationResult(str, Enum):
@@ -78,10 +78,15 @@ class KeywordEvaluator(BaseEvaluator):
                 try:
                     pattern = re.compile(keyword, re.IGNORECASE | re.MULTILINE)
                     self.refusal_patterns.append(pattern)
-                except re.error:
+                except re.error as e:
+                    logging.getLogger(__name__).warning(
+                        f"Failed to compile refusal pattern '{keyword}': {str(e)}"
+                    )
                     continue
-        except Exception:
-            pass
+        except Exception as e:
+            logging.getLogger(__name__).error(
+                f"Error initializing KeywordEvaluator refusal patterns: {type(e).__name__}: {str(e)}"
+            )
 
     async def evaluate(self, target_response: str) -> EvaluationResult:
         """
@@ -102,12 +107,18 @@ class KeywordEvaluator(BaseEvaluator):
                 try:
                     if pattern.search(target_response):
                         return EvaluationResult.PASSED
-                except Exception:
+                except Exception as e:
+                    logging.getLogger(__name__).warning(
+                        f"Pattern matching error: {type(e).__name__}: {str(e)}"
+                    )
                     continue
 
             return EvaluationResult.AMBIGUOUS
 
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).error(
+                f"KeywordEvaluator.evaluate() failed: {type(e).__name__}: {str(e)}"
+            )
             return EvaluationResult.EVAL_ERROR
 
 
@@ -182,7 +193,10 @@ class JudgeLLMEvaluator(BaseEvaluator):
             else:
                 return EvaluationResult.AMBIGUOUS
 
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).error(
+                f"JudgeLLMEvaluator._parse_judge_response() failed: {type(e).__name__}: {str(e)}"
+            )
             return EvaluationResult.AMBIGUOUS
 
     async def evaluate(self, target_response: str) -> EvaluationResult:
@@ -204,8 +218,14 @@ class JudgeLLMEvaluator(BaseEvaluator):
             try:
                 judge_response = await self.judge_adapter.generate(grading_prompt)
             except asyncio.TimeoutError:
+                logging.getLogger(__name__).warning(
+                    "Judge LLM request timed out (30s limit exceeded)"
+                )
                 return EvaluationResult.EVAL_ERROR
-            except Exception:
+            except Exception as e:
+                logging.getLogger(__name__).error(
+                    f"Judge LLM adapter error: {type(e).__name__}: {str(e)}"
+                )
                 return EvaluationResult.EVAL_ERROR
 
             if not judge_response or not isinstance(judge_response, str):
@@ -214,7 +234,10 @@ class JudgeLLMEvaluator(BaseEvaluator):
             result = self._parse_judge_response(judge_response)
             return result
 
-        except Exception:
+        except Exception as e:
+            logging.getLogger(__name__).error(
+                f"JudgeLLMEvaluator.evaluate() failed: {type(e).__name__}: {str(e)}"
+            )
             return EvaluationResult.EVAL_ERROR
 
 

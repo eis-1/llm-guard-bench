@@ -1,0 +1,105 @@
+cff-version: 1.2.0
+title: LLM Guard Bench — Automated Adversarial Attack Benchmark Suite
+abstract: |
+  A research-grade, production-ready framework for systematically evaluating the
+  robustness of Large Language Models against adversarial attack vectors through
+  multi-stage concurrent attacks, dual-ledger auditing, and automated vulnerability
+  analytics with enterprise-grade error handling and resource management.
+
+type: software
+authors:
+  - family-names: Islam
+    given-names: Md Eaftekhirul
+    affiliation: Open Source Researcher
+    orcid: "https://orcid.org/"
+
+repository-code: "https://github.com/yourusername/llm-guard-bench"
+url: "https://github.com/yourusername/llm-guard-bench"
+repository-artifact: "https://github.com/yourusername/llm-guard-bench/releases"
+
+license: MIT
+version: 1.0.0
+date-released: 2026-05-26
+
+keywords:
+  - adversarial attacks
+  - benchmark suite
+  - large language models
+  - llm security
+  - robustness evaluation
+  - prompt injection
+  - jailbreak attacks
+  - evaluation framework
+  - async concurrency
+  - audit trail
+
+topics:
+  - machine-learning
+  - security
+  - testing
+  - benchmarking
+
+references:
+  - type: paper
+    authors:
+      - family-names: Carlini
+        given-names: Nicholas
+      - family-names: Wagner
+        given-names: David
+    title: "Towards Evaluating the Robustness of Neural Networks"
+    collection-title: IEEE Symposium on Security and Privacy
+    year: 2017
+    url: "https://arxiv.org/abs/1608.04644"
+
+  - type: paper
+    authors:
+      - family-names: Yeh
+        given-names: Wei-Chen
+      - family-names: Lin
+        given-names: Wei
+      - family-names: Gao
+        given-names: Huan
+    title: "Black-box Adversarial Attack on Deep Neural Networks via Particle Swarm Optimization"
+    collection-title: arXiv:1602.02196
+    year: 2016
+    url: "https://arxiv.org/abs/1602.02196"
+
+  - type: paper
+    authors:
+      - family-names: Wallace
+        given-names: Eric
+      - family-names: Feng
+        given-names: Shi
+      - family-names: Kandpal
+        given-names: Nikita
+    title: "Universal Adversarial Triggers for Attacking and Analyzing NLP"
+    collection-title: Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing
+    year: 2021
+    url: "https://aclanthology.org/2021.emnlp-main.92/"
+
+contact:
+  - family-names: Islam
+    given-names: Md Eaftekhirul
+    email: eaftekhirul@example.com
+
+funding:
+  - funder-name: "Open Source Initiative"
+  - funder-name: "Research Community"
+
+maintainers:
+  - family-names: Islam
+    given-names: Md Eaftekhirul
+    status: active
+
+support:
+  - type: issue-tracker
+    url: "https://github.com/yourusername/llm-guard-bench/issues"
+  - type: discussions
+    url: "https://github.com/yourusername/llm-guard-bench/discussions"
+  - type: documentation
+    url: "https://github.com/yourusername/llm-guard-bench#readme"
+
+identifiers:
+  - description: "The GitHub repository DOI (mint with Zenodo)"
+    type: doi
+    value: "10.5281/zenodo.XXXXXXX"

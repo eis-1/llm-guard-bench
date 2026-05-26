@@ -1,1 +1,45 @@
+# Python Runtime
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+dist/
+build/
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment Secrets & Configuration
 .env
+.env.local
+.env.*.local
+
+# Runtime Artifacts
+results/guard_bench.db
+results/session_*.jsonl
+results/*.png
+results/test_*.png
+results/vulnerability_report.png
+
+# Build Artifacts & Temporary Files
+*.log
+*.log.*
+.cache/
+.tmp/
+
+# OS Files
+.DS_Store
+Thumbs.db
+.windows-terminal-settings.json
