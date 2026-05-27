@@ -213,7 +213,7 @@ git clone https://github.com/<your-github-username>/llm-guard-bench.git
 cd llm-guard-bench
 ```
 
-> **Note:** Replace `<your-github-username>` with your actual GitHub username if you've forked this repository.
+> **Note:** Replace `eis-1` with your actual GitHub username if you've forked this repository.
 
 ### Step 2: Create Virtual Environment
 
@@ -534,7 +534,7 @@ If you use LLM Guard Bench in academic research, please cite:
   author = {Islam, Md Eaftekhirul},
   title = {LLM Guard Bench: Automated Adversarial Attack Benchmark Suite},
   year = {2026},
-  url = {https://github.com/<your-github-username>/llm-guard-bench}
+  url = {https://github.com/eis-1/llm-guard-bench}
 }
 ```
 
@@ -567,8 +567,8 @@ Key papers informing this framework:
 
 ## Support & Issues
 
-- **Bug Reports**: [GitHub Issues](https://github.com/<your-github-username>/llm-guard-bench/issues)
-- **Feature Requests**: [GitHub Discussions](https://github.com/<your-github-username>/llm-guard-bench/discussions)
+- **Bug Reports**: [GitHub Issues](https://github.com/eis-1/llm-guard-bench/issues)
+- **Feature Requests**: [GitHub Discussions](https://github.com/eis-1/llm-guard-bench/discussions)
 - **Security Vulnerabilities**: Contact maintainer privately
 - **General Questions**: See [CONTRIBUTING.md](CONTRIBUTING.md) for contact info
 
