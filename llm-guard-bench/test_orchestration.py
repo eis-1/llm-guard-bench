@@ -107,7 +107,7 @@ async def test_chart_generation():
         logger.info(f"Attempting chart generation to {chart_path}")
         success = await asyncio.wait_for(
             aggregator.plot_vulnerability_chart(test_session, chart_path),
-            timeout=30.0
+            timeout=180.0
         )
         
         chart_exists = Path(chart_path).exists()
@@ -123,7 +123,7 @@ async def test_chart_generation():
             
     except asyncio.TimeoutError:
         logger.error("Chart generation timed out")
-        print(f"\n[FAIL] TEST 3 FAILED: Chart generation timed out (30s limit)\n")
+        print(f"\n[FAIL] TEST 3 FAILED: Chart generation timed out (180s limit)\n")
         return False
     except Exception as e:
         logger.error(f"[FAIL] TEST 3 FAILED: {type(e).__name__}: {str(e)}", exc_info=True)

@@ -6,6 +6,7 @@ assessing whether LLM responses are vulnerable to prompt injection attacks.
 """
 
 import asyncio
+import logging
 import re
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -201,7 +202,10 @@ class JudgeLLMEvaluator(BaseEvaluator):
 
     async def evaluate(self, target_response: str) -> EvaluationResult:
         """
-        Evaluate the target response using the judge LLM.
+        Evaluate the target response using the judge LLM with exponential backoff retry.
+
+        Implements 3 retries with exponential backoff (2s, 4s, 8s) to handle
+        transient failures (e.g., Groq API rate limits, network timeouts).
 
         Args:
             target_response: The raw response from the target LLM.
@@ -209,33 +213,61 @@ class JudgeLLMEvaluator(BaseEvaluator):
         Returns:
             EvaluationResult based on the judge's assessment.
         """
+        logger = logging.getLogger(__name__)
+        max_retries = 3
+        base_delay = 2  # seconds
+
         try:
             if not target_response or not isinstance(target_response, str):
                 return EvaluationResult.AMBIGUOUS
 
             grading_prompt = self._format_grading_prompt(target_response)
 
-            try:
-                judge_response = await self.judge_adapter.generate(grading_prompt)
-            except asyncio.TimeoutError:
-                logging.getLogger(__name__).warning(
-                    "Judge LLM request timed out (30s limit exceeded)"
-                )
-                return EvaluationResult.EVAL_ERROR
-            except Exception as e:
-                logging.getLogger(__name__).error(
-                    f"Judge LLM adapter error: {type(e).__name__}: {str(e)}"
-                )
-                return EvaluationResult.EVAL_ERROR
+            # Exponential backoff retry loop
+            for attempt in range(max_retries + 1):
+                try:
+                    judge_response = await self.judge_adapter.generate(
+                        system_prompt="",
+                        user_prompt=grading_prompt
+                    )
 
-            if not judge_response or not isinstance(judge_response, str):
-                return EvaluationResult.EVAL_ERROR
+                    if not judge_response or not isinstance(judge_response, str):
+                        return EvaluationResult.EVAL_ERROR
 
-            result = self._parse_judge_response(judge_response)
-            return result
+                    result = self._parse_judge_response(judge_response)
+                    return result
+
+                except asyncio.TimeoutError as e:
+                    if attempt < max_retries:
+                        wait_time = base_delay * (2 ** attempt)
+                        logger.warning(
+                            f"Judge LLM timeout on attempt {attempt + 1}/{max_retries + 1}. "
+                            f"Retrying in {wait_time}s..."
+                        )
+                        await asyncio.sleep(wait_time)
+                    else:
+                        logger.warning(
+                            f"Judge LLM request timed out after {max_retries + 1} attempts (180s limit exceeded)"
+                        )
+                        return EvaluationResult.EVAL_ERROR
+
+                except Exception as e:
+                    if attempt < max_retries:
+                        wait_time = base_delay * (2 ** attempt)
+                        logger.warning(
+                            f"Judge LLM adapter error on attempt {attempt + 1}/{max_retries + 1}: "
+                            f"{type(e).__name__}: {str(e)}. Retrying in {wait_time}s..."
+                        )
+                        await asyncio.sleep(wait_time)
+                    else:
+                        logger.error(
+                            f"Judge LLM adapter failed after {max_retries + 1} attempts: "
+                            f"{type(e).__name__}: {str(e)}"
+                        )
+                        return EvaluationResult.EVAL_ERROR
 
         except Exception as e:
-            logging.getLogger(__name__).error(
+            logger.error(
                 f"JudgeLLMEvaluator.evaluate() failed: {type(e).__name__}: {str(e)}"
             )
             return EvaluationResult.EVAL_ERROR

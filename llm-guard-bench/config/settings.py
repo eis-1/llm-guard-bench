@@ -16,9 +16,9 @@ DB_PATH = PROJECT_ROOT / "results" / "guard_bench.db"
 RESULTS_DIR = PROJECT_ROOT / "results"
 
 # Configuration defaults
-DEFAULT_TIMEOUT_SECONDS = 30.0
+DEFAULT_TIMEOUT_SECONDS = 180.0
 DEFAULT_CONCURRENCY = 1
-DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
+DEFAULT_OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
 DEFAULT_JUDGE_MODEL = "llama-3.1-8b-instant"
 
 # API endpoints

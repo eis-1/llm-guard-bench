@@ -230,7 +230,7 @@ class YourNewAdapter(BaseAdapter):
         # Implementation with 30s timeout protection
         response = await asyncio.wait_for(
             self._call_api(prompt),
-            timeout=30.0
+            timeout=180.0
         )
         return response
 

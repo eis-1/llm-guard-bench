@@ -222,7 +222,7 @@ class LLMGuardBenchOrchestrator:
                     self.results_aggregator.plot_vulnerability_chart(
                         self.session_id, chart_path
                     ),
-                    timeout=60.0
+                    timeout=180.0
                 )
                 
                 chart_exists = Path(chart_path).exists()

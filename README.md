@@ -459,7 +459,7 @@ async def connect(self) -> None:
     if self._connection is None:
         self._connection = await aiosqlite.connect(
             self._db_path,
-            timeout=30.0  # Custom timeout in seconds
+            timeout=180.0  # Custom timeout in seconds
         )
 ```
 

@@ -118,7 +118,7 @@ class BenchmarkPipeline:
         model_name: str,
         attack_index: int,
         session_id: str,
-        timeout_seconds: float = 30.0,
+        timeout_seconds: float = 180.0,
     ) -> Optional[TestResult]:
         """
         Execute a single benchmark test with full instrumentation and error handling.
@@ -151,17 +151,17 @@ class BenchmarkPipeline:
                         system_prompt=attack.system_prompt or "",
                         user_prompt=attack.adversarial_prompt,
                     ),
-                    timeout=timeout_seconds,
+                    timeout=180.0,
                 )
             except asyncio.TimeoutError:
                 execution_time_ms = int((time.time() - target_start) * 1000)
                 self.logger.warning(
-                    f"Attack {attack.attack_id}: Target model timeout after {timeout_seconds}s"
+                    f"Attack {attack.attack_id}: Target model timeout after {180.0}s"
                 )
                 eval_result = EvalResult(
                     status="TIMEOUT",
                     stage="PRE_FLIGHT",
-                    error_message=f"Target model timeout after {timeout_seconds}s",
+                    error_message=f"Target model timeout after {180.0}s",
                 )
 
             target_end = time.time()
@@ -185,11 +185,14 @@ class BenchmarkPipeline:
         # ===== Stage 2: Evaluation Engine (if target succeeded) =====
         if eval_result is None:
             try:
+                # Defensive pacing: Wait 1.0s before Stage 2 to respect Groq free tier RPM limits
+                await asyncio.sleep(1.0)
+                
                 eval_start = time.time()
                 try:
                     evaluation_result: EvaluationResult = await asyncio.wait_for(
                         self.evaluation_engine.evaluate(target_output),
-                        timeout=timeout_seconds,
+                        timeout=180.0,
                     )
                     eval_end = time.time()
                     self.logger.debug(
@@ -199,12 +202,12 @@ class BenchmarkPipeline:
 
                 except asyncio.TimeoutError:
                     self.logger.warning(
-                        f"Attack {attack.attack_id}: Evaluation timeout after {timeout_seconds}s"
+                        f"Attack {attack.attack_id}: Evaluation timeout after {180.0}s"
                     )
                     eval_result = EvalResult(
                         status="EVAL_ERROR",
                         stage="STAGE_2_JUDGE",
-                        error_message=f"Evaluation timeout after {timeout_seconds}s",
+                        error_message=f"Evaluation timeout after {180.0}s",
                     )
 
             except Exception as e:
@@ -254,6 +257,10 @@ class BenchmarkPipeline:
         """
         Convert EvaluationEngine's EvaluationResult enum to EvalResult model.
 
+        Maps EvaluationResult string values to appropriate EvalResult with status,
+        stage, and error context. Explicitly handles EVAL_ERROR for upstream
+        infrastructure/network failures.
+
         Args:
             evaluation_result: Result from EvaluationEngine.evaluate()
 
@@ -279,9 +286,16 @@ class BenchmarkPipeline:
                 stage="STAGE_2_JUDGE",
                 error_message="Judge evaluation produced ambiguous result",
             )
+        elif result_str == "EVAL_ERROR":
+            # Handle upstream judge LLM failures (rate limits, network errors, etc.)
+            return EvalResult(
+                status="EVAL_ERROR",
+                stage="STAGE_2_JUDGE",
+                error_message="Judge LLM evaluation failed due to an upstream API or network exception",
+            )
         else:
             return EvalResult(
                 status="EVAL_ERROR",
                 stage="STAGE_2_JUDGE",
-                error_message=f"Unknown evaluation result: {result_str}",
+                error_message=f"Unknown evaluation result string received: {result_str}",
             )

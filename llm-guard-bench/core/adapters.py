@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import pathlib
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
@@ -29,7 +31,7 @@ class OllamaAdapter(BaseAdapter):
         self,
         model_name: str,
         base_url: str = "http://localhost:11434",
-        timeout_seconds: float = 30.0,
+        timeout_seconds: float = 180.0,
         default_temperature: float = 0.0,
     ) -> None:
         self.model_name = model_name
@@ -108,7 +110,7 @@ class GroqAdapter(BaseAdapter):
         self,
         model_name: str,
         api_key: str,
-        timeout_seconds: float = 30.0,
+        timeout_seconds: float = 180.0,
         default_temperature: float = 0.0,
     ) -> None:
         if not api_key:
@@ -161,16 +163,44 @@ class GroqAdapter(BaseAdapter):
             raise RuntimeError(f"Failed to parse Groq response: {exc}") from exc
 
 
+def _get_default_ollama_url() -> str:
+    """
+    Determine Ollama base URL based on environment and execution context.
+    
+    Priority:
+    1. OLLAMA_BASE_URL environment variable (explicit override)
+    2. OLLAMA_ENDPOINT environment variable (Docker Compose default)
+    3. host.docker.internal:11434 if running in Docker (detected by /.dockerenv)
+    4. localhost:11434 if running locally
+    """
+    # Priority 1: Explicit environment variable
+    if env_url := os.getenv("OLLAMA_BASE_URL"):
+        return env_url
+    
+    # Priority 2: Docker Compose OLLAMA_ENDPOINT
+    if env_url := os.getenv("OLLAMA_ENDPOINT"):
+        return env_url
+    
+    # Priority 3: Running in Docker container (check for /.dockerenv marker)
+    if pathlib.Path("/.dockerenv").exists():
+        return "http://host.docker.internal:11434"
+    
+    # Fallback: localhost (for local development)
+    return "http://localhost:11434"
+
+
 def get_adapter(provider: str, model_name: str, api_key: str = None) -> BaseAdapter:
     """Factory for provider-specific adapters."""
     normalized = (provider or "").strip().lower()
 
     if normalized == "ollama":
-        return OllamaAdapter(model_name=model_name)
+        base_url = _get_default_ollama_url()
+        # এখানে explicit ভাবে timeout_seconds=180.0 পাস করে দিচ্ছি
+        return OllamaAdapter(model_name=model_name, base_url=base_url, timeout_seconds=180.0)
 
     if normalized == "groq":
         if not api_key:
             raise RuntimeError("API key is required for Groq adapter")
-        return GroqAdapter(model_name=model_name, api_key=api_key)
+        return GroqAdapter(model_name=model_name, api_key=api_key, timeout_seconds=180.0)
 
     raise RuntimeError(f"Unsupported provider: {provider}")

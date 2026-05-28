@@ -1,6 +1,7 @@
 # db/db.py
 # DatabaseManager: async SQLite interface using aiosqlite.
 # All SQL statements reference the v3.0 column names: model_name, category.
+# BULLETPROOF: Validates schema integrity and gracefully handles database repairs.
 
 from __future__ import annotations
 
@@ -17,12 +18,22 @@ logger = logging.getLogger(__name__)
 
 _MIGRATION_PATH = Path(__file__).parent / "migrations" / "001_initial_schema.sql"
 
+# ============================================================================
+# REQUIRED TABLES (v3.0) — Enforced by validator
+# ============================================================================
+REQUIRED_TABLES = {
+    "test_results",
+    "sessions",
+    "attack_definitions",
+}
+
 
 class DatabaseManager:
 
     def __init__(self, db_path: Path = DB_PATH) -> None:
         self._db_path = db_path
         self._connection = None
+        self._schema_validated = False
         RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
     async def connect(self) -> None:
@@ -59,16 +70,79 @@ class DatabaseManager:
 
     async def initialize(self) -> None:
         """
-        Applies the initial schema migration (001_initial_schema.sql).
+        Applies the initial schema migration (001_initial_schema.sql) with validation.
         Safe to call on an already-initialised database: all statements
         use CREATE TABLE IF NOT EXISTS and CREATE INDEX IF NOT EXISTS.
-        Must be called once before any other DatabaseManager method.
+        
+        BULLETPROOF: Validates schema after migration and raises if tables are missing.
         """
         migration_sql = _MIGRATION_PATH.read_text(encoding="utf-8")
+        
+        # Remove old corrupted database if schema is invalid
+        if self._db_path.exists():
+            try:
+                # Quick check for schema validity before full migration
+                existing_tables = await self._get_table_names()
+                if existing_tables and not REQUIRED_TABLES.issubset(existing_tables):
+                    logger.warning(
+                        f"Database at {self._db_path} has invalid schema. "
+                        f"Expected tables: {REQUIRED_TABLES}, Found: {existing_tables}. "
+                        f"Rebuilding database..."
+                    )
+                    # Backup old database
+                    backup_path = self._db_path.with_suffix('.db.backup')
+                    self._db_path.rename(backup_path)
+                    logger.info(f"Backed up corrupted database to {backup_path}")
+            except Exception as e:
+                logger.debug(f"Schema pre-check failed (expected if DB is new): {e}")
+        
+        # Apply migrations
         async with aiosqlite.connect(self._db_path) as conn:
             await conn.executescript(migration_sql)
             await conn.commit()
         logger.info("Database initialised at %s", self._db_path)
+        
+        # Validate schema after migration
+        await self._validate_schema()
+
+    async def _get_table_names(self) -> set[str]:
+        """
+        Get all table names in the database.
+        BULLETPROOF: Used for validation and error diagnostics.
+        """
+        try:
+            async with aiosqlite.connect(self._db_path) as conn:
+                cursor = await conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+                )
+                rows = await cursor.fetchall()
+                return {row[0] for row in rows}
+        except Exception as e:
+            logger.error(f"Failed to enumerate tables: {e}")
+            return set()
+
+    async def _validate_schema(self) -> None:
+        """
+        Validate that all required v3.0 tables exist.
+        BULLETPROOF: Raises RuntimeError if schema is invalid.
+        """
+        existing_tables = await self._get_table_names()
+        missing_tables = REQUIRED_TABLES - existing_tables
+        
+        if missing_tables:
+            msg = (
+                f"DATABASE SCHEMA MISMATCH DETECTED!\n"
+                f"Missing tables: {missing_tables}\n"
+                f"Expected: {REQUIRED_TABLES}\n"
+                f"Found: {existing_tables}\n"
+                f"Database path: {self._db_path}\n"
+                f"Migration file: {_MIGRATION_PATH}\n"
+            )
+            logger.error(msg)
+            raise RuntimeError(msg)
+        
+        logger.debug(f"Schema validation passed. Tables: {existing_tables}")
+        self._schema_validated = True
 
     async def insert_result(self, result: TestResult) -> None:
         """
@@ -200,3 +274,30 @@ class DatabaseManager:
                 ),
             )
             await conn.commit()
+
+    async def get_test_results_count(self, session_id: str = None) -> int:
+        """
+        Get the count of records in test_results table.
+        BULLETPROOF: Used for validation after benchmark completion.
+        
+        Args:
+            session_id: Optional session ID to filter by. If None, counts all records.
+        
+        Returns:
+            Total row count in test_results table
+        """
+        if self._connection is None:
+            raise RuntimeError("Database connection not established. Call connect() first.")
+        
+        conn = self._connection
+        if session_id:
+            cursor = await conn.execute(
+                "SELECT COUNT(*) FROM test_results WHERE session_id = ?",
+                (session_id,),
+            )
+        else:
+            cursor = await conn.execute("SELECT COUNT(*) FROM test_results")
+        
+        row = await cursor.fetchone()
+        return row[0] if row else 0
+

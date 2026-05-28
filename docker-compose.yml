@@ -1,0 +1,132 @@
+# ============================================================================
+# LLM Guard Bench Docker Compose Configuration
+# ============================================================================
+# Purpose: Run llm-guard-bench in a container with access to host Ollama
+# Usage: docker compose up -d --build
+# ============================================================================
+
+services:
+  # =========================================================================
+  # llm-guard-bench Application Container
+  # =========================================================================
+  llm-guard-bench:
+    # Build configuration
+    build:
+      context: ./llm-guard-bench
+      dockerfile: Dockerfile
+      args:
+        PIP_NO_CACHE_DIR: "1"
+        PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    
+    # Container metadata
+    container_name: llm-guard-bench-app
+    image: llm-guard-bench:latest
+    
+    # =====================================================================
+    # Environment Configuration
+    # =====================================================================
+    env_file:
+      - ./llm-guard-bench/.env
+    
+    environment:
+      # Override localhost to reach host machine's Ollama
+      # OLLAMA_BASE_URL will be read from settings.py as "http://host.docker.internal:11434"
+      OLLAMA_ENDPOINT: "http://host.docker.internal:11434"
+      
+      # Python runtime
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      LOG_LEVEL: "INFO"
+      
+      # API keys from .env (loaded via env_file above)
+      # Do NOT override with ${VAR} syntax — env_file handles them automatically
+    
+    # =====================================================================
+    # Volume Mounts (Persistent data + code)
+    # =====================================================================
+    volumes:
+      # Results directory: database + JSONL logs write directly to host
+      - ./llm-guard-bench/results:/app/results
+      
+      # Configuration files (read-only)
+      - ./llm-guard-bench/config:/app/config:ro
+      
+      # Source code (for development; remove in production)
+      # - ./llm-guard-bench:/app:delegated
+    
+    # =====================================================================
+    # Network Configuration (Host Communication)
+    # =====================================================================
+    # extra_hosts allows the container to reach host.docker.internal
+    # This is how we contact the host machine's Ollama on localhost:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    
+    # Use bridge network for container-to-host communication
+    networks:
+      - llm-bench-network
+    
+    # =====================================================================
+    # Restart and Logging
+    # =====================================================================
+    restart: "no"
+    # Set to "always" if you want the container to auto-restart on failure
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # =====================================================================
+    # Resource Limits (optional)
+    # =====================================================================
+    # Uncomment to limit container resources
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2'
+    #       memory: 4G
+    #     reservations:
+    #       cpus: '1'
+    #       memory: 2G
+    
+    # =====================================================================
+    # Standard Input/Output (for interactive debugging)
+    # =====================================================================
+    stdin_open: true
+    tty: true
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  llm-bench-network:
+    name: llm-bench-network
+    driver: bridge
+    driver_opts:
+      # Enable host.docker.internal on all platforms
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+
+# ============================================================================
+# Notes
+# ============================================================================
+# 1. Ollama Access:
+#    - Container reaches Ollama at http://host.docker.internal:11434
+#    - Ensure Ollama is running on host before docker compose up
+#    - Test: docker compose exec llm-guard-bench curl http://host.docker.internal:11434
+#
+# 2. Volume Mounts:
+#    - ./llm-guard-bench/results is the authoritative location for DB + JSONL
+#    - All output files appear on host machine immediately
+#
+# 3. API Keys:
+#    - Copy llm-guard-bench/.env.example to llm-guard-bench/.env
+#    - Fill in GROQ_API_KEY, OPENAI_API_KEY, etc.
+#    - env_file directive loads these into the container
+#
+# 4. Running Commands:
+#    - Interactive: docker compose run --rm llm-guard-bench python main.py run --help
+#    - Daemon: docker compose up -d --build
+#    - Logs: docker compose logs -f llm-guard-bench
+#    - Cleanup: docker compose down && rm -rf llm-guard-bench/results/*

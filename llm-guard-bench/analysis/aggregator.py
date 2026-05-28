@@ -170,11 +170,11 @@ class ResultsAggregator:
             try:
                 results = await asyncio.wait_for(
                     self._query_sqlite(session_id),
-                    timeout=15.0
+                    timeout=180.0
                 )
                 return results if results else []
             except asyncio.TimeoutError:
-                logger.error(f"Database query timed out after 15 seconds for session {session_id}")
+                logger.error(f"Database query timed out after 180 seconds for session {session_id}")
                 return []
                 
         except Exception as e:
