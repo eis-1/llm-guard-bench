@@ -38,4 +38,10 @@ Thumbs.db
 .windows-terminal-settings.json
 
 # Blueprint/Development Files (Not for Production)
-LLM_Guard_Bench_Blueprint_v3.md
+LLM_Guard_Bench_Blueprint*.md
+BLUEPRINT*.md
+DRAFT*.md
+*_REFACTORED.md
+*.draft.md
+.design/
+.spec/
